@@ -22,6 +22,20 @@ def convert_big_number2(nb):
         return 0
 
 
+def calc_ratio(nb_list):
+    """
+    Calculate a ration between nb[1] / nb[0] in %
+    :param nb_list: list of the two number to evaluate
+    :return: float rounded at 2 decimals
+    """
+    if nb_list[0] == 0:
+        return 100
+    elif nb_list[1] == 0:
+        return 0
+    else:
+        return round(nb_list[1] / nb_list[0] * 100, 2)
+
+
 def columns_list(csv_uri, sep):
     """
         Create a list of columns name from a csv.
@@ -33,6 +47,23 @@ def columns_list(csv_uri, sep):
         csv_uri,
         sep=sep,
         nrows=1))
+
+
+def compare_df_gain(csv_uri, sep, df_optimized):
+    """
+    Compare the original size of a df without optimization and the same source but with optimization
+    :param csv_uri: original uri to request without optimization
+    :param sep: separator to use on the original data
+    :param df_optimized: pandas dataframe optimized
+    """
+    df_original = pd.read_csv(
+        csv_uri,
+        sep=sep)
+    original_size = df_original.memory_usage(deep=True).sum()
+    optimized_size = df_optimized.memory_usage(deep=True).sum()
+    print(original_size)
+    print(optimized_size)
+    print('Gain : ' + str((1 - optimized_size / original_size) * 100))
 
 
 def read_csv(csv_uri, sep):
@@ -61,7 +92,19 @@ def read_csv(csv_uri, sep):
         }
     )
 
-    print(df)
+    # Drop useless rows if `latitude` or `longitude` is NaN
+    df = df.dropna(subset=['latitude', 'longitude'])
+    # reformat all headers columns name
+    df.rename(columns=lambda x: x.lower(), inplace=True)
+    # build a `start_dat` column based on `day`, `month`, `year`, then drop the least
+    df['start_date'] = pd.to_datetime(df[['day', 'month', 'year']], dayfirst=True)
+    df = df.drop(columns=['day', 'month', 'year'])
+    # convert genre from str to bool with F = True
+    df['genre'] = df['genre'].astype('bool')
+    # apply calc_ration to recalculation the values in this column
+    df['ratio'] = df[['2018', '2019']].apply(calc_ratio, axis=1)
+    # compare the gain with the original df w/o optimization
+    compare_df_gain(csv_uri, sep, df)
 
 
 if __name__ == '__main__':
